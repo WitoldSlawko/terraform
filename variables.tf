@@ -16,3 +16,7 @@ variable "aws_key_name" {
   description = "Nawa klucza dodanego w AWS"
 }
 
+variable "ssh_key_path" {
+  description = "Sciezka do klucza SSH"
+}
+
