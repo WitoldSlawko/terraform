@@ -1,3 +1,3 @@
-security_group = "sg-f4d9f4da"
-aws_key_name = "klucz2"
-ssh_key_path="~/.ssh/test2.pem"
+security_group = "sg-a1d8e08a"
+aws_key_name = "panda_kurs"
+ssh_key_path="~/Downloads/panda_kurs.pem"

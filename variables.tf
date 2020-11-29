@@ -5,7 +5,7 @@ variable "ec2_availability_zone" {
 
 variable "elb_availability_zones" {
   description = "Zone'y w ktorym dostepny jest ELB. Jedna z nich musi pokrywac sie z instancja"
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-1a"]
 }
 
 variable "security_group" {
