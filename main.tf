@@ -1,9 +1,7 @@
 provider "aws" {
   region = "us-east-1"
-  # profile = panda
+  # profile = panda # tylko gdy istnieje taki --profile w ~/.aws/credentials
 }
-
-/*add: vpc, subnet*/
 
 resource "aws_vpc" "vpc" {
     cidr_block = "10.83.0.0/16"
