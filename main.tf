@@ -1,6 +1,6 @@
 provider "aws" {
   region = "us-east-1"
-  # profile = panda # tylko gdy istnieje taki --profile w ~/.aws/credentials
+  profile = "panda" # tylko gdy istnieje taki --profile w ~/.aws/credentials
 }
 
 resource "aws_vpc" "vpc" {
@@ -27,15 +27,17 @@ resource "aws_route_table" "public_route_table" {
 }
 
 resource "aws_route_table_association" "public_route_table_association" {
-    subnet_id = aws_subnet.pub_subnet.id
+    count = length(aws_subnet.pub_subnet)
+    subnet_id = aws_subnet.pub_subnet[count.index].id
     route_table_id = aws_route_table.public_route_table.id
 }
 
 resource "aws_subnet" "pub_subnet" {
     vpc_id                  = aws_vpc.vpc.id
-    cidr_block              = "10.83.16.0/20"
+    count = length(var.availability_zones)
+    cidr_block        = cidrsubnet(aws_vpc.vpc.cidr_block, 8, count.index)
     map_public_ip_on_launch = true
-    availability_zone = "us-east-1a"
+    availability_zone = var.availability_zones[count.index]
 }
 
 resource "aws_security_group" "sg-pub" {
@@ -70,13 +72,13 @@ resource "aws_security_group" "sg-pub" {
     }
 }
 resource "aws_instance" "panda" {
-  count                     = 2
+  count                     = length(var.availability_zones)
   ami                       = "ami-0885b1f6bd170450c"
   instance_type             = "t2.micro"
-  availability_zone         = var.ec2_availability_zone
+  availability_zone         = var.availability_zones[count.index] 
   key_name                  = var.aws_key_name
   vpc_security_group_ids    = [aws_security_group.sg-pub.id]
-  subnet_id = aws_subnet.pub_subnet.id
+  subnet_id = aws_subnet.pub_subnet[count.index].id
 
   connection {
     host        = self.public_ip
@@ -94,30 +96,41 @@ resource "aws_instance" "panda" {
   }
 }
 
-resource "aws_elb" "panda" {
-  name               = "panda-load-balancer"
-  security_groups   = [aws_security_group.sg-pub.id]
-  subnets = [aws_subnet.pub_subnet.id]
+resource "aws_lb" "alb" {
+    name               = "alb"
+    internal           = false
+    load_balancer_type = "application"
+    security_groups    =  [aws_security_group.sg-pub.id]
+    subnets            =  aws_subnet.pub_subnet[*].id
+}
 
-  health_check {
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    timeout             = 3
-    interval            = 30
-    target              = "HTTP:8080/"
+resource "aws_lb_listener" "alb-listener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg.arn
   }
+}
 
-  listener {
-    lb_port           = 80
-    lb_protocol       = "http"
-    instance_port     = "8080"
-    instance_protocol = "http"
-  }
+resource "aws_lb_target_group" "tg" {
+  name     = "tg"
+  port     = 8080
+  protocol = "HTTP"
+  target_type = "instance"
+  vpc_id   = aws_vpc.vpc.id
+}
 
-  instances = aws_instance.panda.*.id
+resource "aws_lb_target_group_attachment" "tg-attch" {
+  count = length(aws_instance.panda)
+  target_group_arn = aws_lb_target_group.tg.arn
+  target_id        = aws_instance.panda[count.index].id
+  port             = 8080
 }
 
 output "elb_dns_name" {
-  value = aws_elb.panda.dns_name
+  value = aws_lb.alb.dns_name
 }
 
